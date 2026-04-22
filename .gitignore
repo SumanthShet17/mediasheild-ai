@@ -31,7 +31,3 @@ MEMBER*.md
 TEAM_COORDINATION.md
 implementation_plan.md
 
-# Project config (not needed in repo)
-package.json
-package-lock.json
-vite.config.js
