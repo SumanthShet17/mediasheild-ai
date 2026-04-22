@@ -1,0 +1,57 @@
+# MediaShield AI — Pull Request Checks
+# Validates each team member's PR before allowing merge
+
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  validate-pr:
+    name: ✅ Validate Pull Request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for diff comparison
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build check
+        run: npm run build
+        env:
+          VITE_GEMINI_API_KEY: placeholder_for_build
+          VITE_GOOGLE_CLOUD_API_KEY: placeholder_for_build
+          VITE_MAPS_API_KEY: placeholder_for_build
+
+      - name: List changed files
+        run: |
+          echo "### 📝 Changed Files" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          git diff --name-only origin/${{ github.base_ref }}...HEAD >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Check for merge conflicts markers
+        run: |
+          if grep -rn "<<<<<<< " --include="*.js" --include="*.css" --include="*.html" . 2>/dev/null; then
+            echo "❌ Merge conflict markers found!"
+            exit 1
+          fi
+          echo "✅ No merge conflicts"
+
+      - name: Verify no .env files committed
+        run: |
+          if [ -f ".env" ]; then
+            echo "❌ .env file should NOT be committed! Add it to .gitignore"
+            exit 1
+          fi
+          echo "✅ No .env files in commit"
