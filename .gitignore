@@ -25,3 +25,8 @@ npm-debug.log*
 
 # Cache
 .cache/
+
+# Team planning docs (keep local only)
+MEMBER*.md
+TEAM_COORDINATION.md
+implementation_plan.md
