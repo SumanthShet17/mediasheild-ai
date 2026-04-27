@@ -21,16 +21,7 @@ import { API_ENDPOINTS, FEATURES } from '../utils/constants.js';
  * @returns {Promise<object>} Normalized detection results
  */
 export async function analyzeWithVision(imageBase64) {
-  if (FEATURES.USE_MOCK_VISION) {
-    return getMockVisionResult();
-  }
-
-  try {
-    return await callVisionAPI(imageBase64);
-  } catch (error) {
-    console.warn('[Vision] analyzeWithVision failed, using mock:', error.message);
-    return getMockVisionResult();
-  }
+  return await callVisionAPI(imageBase64);
 }
 
 /**
@@ -40,37 +31,7 @@ export async function analyzeWithVision(imageBase64) {
  * @returns {Promise<object>} Web detection results only
  */
 export async function detectWebPresence(imageBase64) {
-  if (FEATURES.USE_MOCK_VISION) {
-    return getMockWebDetection();
-  }
-
-  try {
-    const apiKey = import.meta.env.VITE_GOOGLE_CLOUD_API_KEY;
-    if (!apiKey) throw new Error('VITE_GOOGLE_CLOUD_API_KEY is not configured');
-
-    const response = await fetch(`${API_ENDPOINTS.CLOUD_VISION}?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        requests: [{
-          image: { content: imageBase64 },
-          features: [{ type: 'WEB_DETECTION', maxResults: 20 }],
-        }],
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Vision API error (${response.status})`);
-    }
-
-    const data = await response.json();
-    const result = data.responses[0];
-
-    return normalizeWebDetection(result.webDetection);
-  } catch (error) {
-    console.warn('[Vision] detectWebPresence failed, using mock:', error.message);
-    return getMockWebDetection();
-  }
+  return await callBackend(API_ENDPOINTS.VISION_WEB, { imageBase64 });
 }
 
 // ---------------------------------------------------------------------------
@@ -78,46 +39,26 @@ export async function detectWebPresence(imageBase64) {
 // ---------------------------------------------------------------------------
 
 async function callVisionAPI(imageBase64) {
-  const apiKey = import.meta.env.VITE_GOOGLE_CLOUD_API_KEY;
-
-  if (!apiKey) {
-    throw new Error('VITE_GOOGLE_CLOUD_API_KEY is not configured');
-  }
-
   if (FEATURES.DEBUG_MODE) {
-    console.log('[Vision] Sending request with 6 feature types');
+    console.log('[Vision] Sending request through backend');
   }
 
-  const response = await fetch(`${API_ENDPOINTS.CLOUD_VISION}?key=${apiKey}`, {
+  return await callBackend(API_ENDPOINTS.VISION_ANALYZE, { imageBase64 });
+}
+
+async function callBackend(endpoint, body) {
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      requests: [{
-        image: { content: imageBase64 },
-        features: [
-          { type: 'LOGO_DETECTION', maxResults: 10 },
-          { type: 'TEXT_DETECTION' },
-          { type: 'LABEL_DETECTION', maxResults: 20 },
-          { type: 'WEB_DETECTION', maxResults: 10 },
-          { type: 'IMAGE_PROPERTIES' },
-          { type: 'SAFE_SEARCH_DETECTION' },
-        ],
-      }],
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(`Vision API error (${response.status}): ${errorBody}`);
+    throw new Error(`Backend error (${response.status}): ${errorBody}`);
   }
 
-  const data = await response.json();
-
-  if (FEATURES.DEBUG_MODE) {
-    console.log('[Vision] Response received');
-  }
-
-  return normalizeVisionResponse(data.responses[0]);
+  return await response.json();
 }
 
 // ---------------------------------------------------------------------------
@@ -129,7 +70,7 @@ async function callVisionAPI(imageBase64) {
  * This abstraction means the rest of the app never sees raw API shapes.
  */
 function normalizeVisionResponse(result) {
-  if (!result) return getMockVisionResult();
+  if (!result) return {};
 
   return {
     // Detected logos with confidence and bounding boxes

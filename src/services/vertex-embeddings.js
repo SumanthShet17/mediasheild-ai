@@ -27,22 +27,13 @@ import { API_ENDPOINTS, FEATURES } from '../utils/constants.js';
  * @returns {Promise<Float32Array>} Embedding vector (768 dimensions)
  */
 export async function generateImageEmbedding(imageBase64) {
-  if (FEATURES.USE_MOCK_GEMINI) {
-    return generateMockEmbedding(imageBase64);
-  }
+  // Step 1: Get a rich description of the image from Gemini
+  const description = await describeImageForEmbedding(imageBase64);
 
-  try {
-    // Step 1: Get a rich description of the image from Gemini
-    const description = await describeImageForEmbedding(imageBase64);
+  // Step 2: Embed the description into a vector
+  const embedding = await embedText(description);
 
-    // Step 2: Embed the description into a vector
-    const embedding = await embedText(description);
-
-    return embedding;
-  } catch (error) {
-    console.warn('[Embeddings] generateImageEmbedding failed, using mock:', error.message);
-    return generateMockEmbedding(imageBase64);
-  }
+  return embedding;
 }
 
 /**
@@ -53,16 +44,7 @@ export async function generateImageEmbedding(imageBase64) {
  * @returns {Promise<Float32Array>} Embedding vector
  */
 export async function generateTextEmbedding(text) {
-  if (FEATURES.USE_MOCK_GEMINI) {
-    return generateMockEmbedding(text);
-  }
-
-  try {
-    return await embedText(text);
-  } catch (error) {
-    console.warn('[Embeddings] generateTextEmbedding failed, using mock:', error.message);
-    return generateMockEmbedding(text);
-  }
+  return await embedText(text);
 }
 
 // ---------------------------------------------------------------------------
@@ -86,34 +68,21 @@ Be as specific and detailed as possible. Output ONLY the description text, no fo
  * This description is then embedded to create the semantic vector.
  */
 async function describeImageForEmbedding(imageBase64) {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) throw new Error('VITE_GEMINI_API_KEY not configured');
-
-  const response = await fetch(`${API_ENDPOINTS.GEMINI}?key=${apiKey}`, {
+  const response = await fetch(API_ENDPOINTS.EMBEDDING_IMAGE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{
-        parts: [
-          { text: DESCRIPTION_PROMPT },
-          { inline_data: { mime_type: 'image/jpeg', data: imageBase64 } },
-        ],
-      }],
-      generationConfig: {
-        temperature: 0.1,
-        maxOutputTokens: 1024,
-      },
-    }),
+    body: JSON.stringify({ imageBase64 }),
   });
 
   if (!response.ok) {
-    throw new Error(`Gemini API error (${response.status})`);
+    const errorBody = await response.text();
+    throw new Error(`Backend error (${response.status}): ${errorBody}`);
   }
 
   const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const text = data?.description;
 
-  if (!text) throw new Error('Empty description from Gemini');
+  if (!text) throw new Error('Empty description from backend');
 
   if (FEATURES.DEBUG_MODE) {
     console.log('[Embeddings] Image description:', text.substring(0, 150) + '...');
@@ -133,26 +102,19 @@ async function describeImageForEmbedding(imageBase64) {
  * @returns {Promise<Float32Array>} 768-dimensional vector
  */
 async function embedText(text) {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) throw new Error('VITE_GEMINI_API_KEY not configured');
-
-  const response = await fetch(`${API_ENDPOINTS.TEXT_EMBEDDING}?key=${apiKey}`, {
+  const response = await fetch(API_ENDPOINTS.EMBEDDING_TEXT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      content: {
-        parts: [{ text }],
-      },
-    }),
+    body: JSON.stringify({ text }),
   });
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(`Embedding API error (${response.status}): ${errorBody}`);
+    throw new Error(`Backend error (${response.status}): ${errorBody}`);
   }
 
   const data = await response.json();
-  const values = data?.embedding?.values;
+  const values = data?.embedding;
 
   if (!values || values.length === 0) {
     throw new Error('Empty embedding response');

@@ -11,7 +11,7 @@
 // mock fallback for demo mode.
 // ============================================================================
 
-import { API_ENDPOINTS, MODEL_CONFIG, FEATURES } from '../utils/constants.js';
+import { API_ENDPOINTS, FEATURES } from '../utils/constants.js';
 
 // ---------------------------------------------------------------------------
 // Core API Caller
@@ -26,81 +26,30 @@ import { API_ENDPOINTS, MODEL_CONFIG, FEATURES } from '../utils/constants.js';
  * @param {object} [options]         - Override generation config
  * @returns {Promise<object|string>} Parsed JSON or raw text response
  */
-async function callGemini(prompt, imageBase64Array = [], options = {}) {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-
-  if (!apiKey) {
-    throw new Error('VITE_GEMINI_API_KEY is not configured');
-  }
-
-  // Build the parts array: text first, then images
-  const parts = [{ text: prompt }];
-
-  for (const imgBase64 of imageBase64Array) {
-    parts.push({
-      inline_data: {
-        mime_type: 'image/jpeg',
-        data: imgBase64,
-      },
-    });
-  }
-
-  const endpoint = options.useFlash
-    ? API_ENDPOINTS.GEMINI_FLASH
-    : API_ENDPOINTS.GEMINI;
-
-  const generationConfig = {
-    temperature: options.temperature ?? MODEL_CONFIG.TEMPERATURE,
-    maxOutputTokens: options.maxTokens ?? MODEL_CONFIG.MAX_TOKENS,
-  };
-
-  // Only add responseMimeType if we want JSON output
-  if (options.responseType !== 'text') {
-    generationConfig.responseMimeType = MODEL_CONFIG.RESPONSE_MIME_TYPE;
-  }
-
+async function callBackend(endpoint, body) {
   if (FEATURES.DEBUG_MODE) {
-    console.log('[Gemini] Request:', { endpoint, promptLength: prompt.length, imageCount: imageBase64Array.length });
+    console.log('[Gemini] Request:', { endpoint });
   }
 
-  const response = await fetch(`${endpoint}?key=${apiKey}`, {
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts }],
-      generationConfig,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(`Gemini API error (${response.status}): ${errorBody}`);
+    throw new Error(`Backend error (${response.status}): ${errorBody}`);
   }
 
-  const data = await response.json();
+  return await response.json();
+}
 
-  // Extract the text from the response
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    throw new Error('Empty response from Gemini API');
-  }
-
-  if (FEATURES.DEBUG_MODE) {
-    console.log('[Gemini] Response:', text.substring(0, 200));
-  }
-
-  // Parse as JSON if expected, otherwise return raw text
-  if (options.responseType === 'text') {
-    return text;
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    // Sometimes Gemini wraps JSON in markdown code blocks
-    const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    return JSON.parse(cleaned);
-  }
+async function callGemini(prompt, imageBase64Array = [], options = {}) {
+  void prompt;
+  void imageBase64Array;
+  void options;
+  throw new Error('callGemini is no longer used directly');
 }
 
 // ---------------------------------------------------------------------------
@@ -127,19 +76,14 @@ Be specific about teams, players, and context. If unsure, provide best estimates
  * Analyze an uploaded sports media asset using Gemini.
  *
  * @param {string} imageBase64 - Base64 image string (WITHOUT data URI prefix)
+ * @param {{ fileName?: string }} [metadata] - Optional upload metadata used by the backend fallback
  * @returns {Promise<object>} Structured analysis result
  */
-export async function analyzeAsset(imageBase64) {
-  if (FEATURES.USE_MOCK_GEMINI) {
-    return getMockAnalysis();
-  }
-
-  try {
-    return await callGemini(ANALYZE_PROMPT, [imageBase64]);
-  } catch (error) {
-    console.warn('[Gemini] analyzeAsset failed, using mock:', error.message);
-    return getMockAnalysis();
-  }
+export async function analyzeAsset(imageBase64, metadata = {}) {
+  return await callBackend(API_ENDPOINTS.GEMINI_ANALYZE, {
+    imageBase64,
+    fileName: metadata.fileName || '',
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -172,16 +116,7 @@ IMAGE 1 is the original. IMAGE 2 is the suspect. Focus on visual similarities, l
  * @returns {Promise<object>} Threat assessment result
  */
 export async function classifyThreat(originalBase64, suspectBase64) {
-  if (FEATURES.USE_MOCK_GEMINI) {
-    return getMockThreat();
-  }
-
-  try {
-    return await callGemini(THREAT_PROMPT, [originalBase64, suspectBase64]);
-  } catch (error) {
-    console.warn('[Gemini] classifyThreat failed, using mock:', error.message);
-    return getMockThreat();
-  }
+  return await callBackend(API_ENDPOINTS.GEMINI_THREAT, { originalBase64, suspectBase64 });
 }
 
 // ---------------------------------------------------------------------------
@@ -217,20 +152,7 @@ Generate the complete DMCA notice as a professional legal document. Return as a 
  * @returns {Promise<object>} Generated DMCA notice
  */
 export async function generateDMCA(violationData) {
-  if (FEATURES.USE_MOCK_GEMINI) {
-    return getMockDMCA(violationData);
-  }
-
-  try {
-    return await callGemini(
-      DMCA_PROMPT_TEMPLATE(violationData),
-      [],
-      { maxTokens: MODEL_CONFIG.MAX_TOKENS_LONG }
-    );
-  } catch (error) {
-    console.warn('[Gemini] generateDMCA failed, using mock:', error.message);
-    return getMockDMCA(violationData);
-  }
+  return await callBackend(API_ENDPOINTS.GEMINI_DMCA, { violationData });
 }
 
 // ---------------------------------------------------------------------------
@@ -261,16 +183,7 @@ Return a JSON object:
  * @returns {Promise<object>} Intelligence summary
  */
 export async function summarizePropagation(graphData) {
-  if (FEATURES.USE_MOCK_GEMINI) {
-    return getMockPropagation();
-  }
-
-  try {
-    return await callGemini(PROPAGATION_PROMPT_TEMPLATE(graphData));
-  } catch (error) {
-    console.warn('[Gemini] summarizePropagation failed, using mock:', error.message);
-    return getMockPropagation();
-  }
+  return await callBackend(API_ENDPOINTS.GEMINI_PROPAGATION, { graphData });
 }
 
 // ---------------------------------------------------------------------------
