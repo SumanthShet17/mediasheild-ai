@@ -10,10 +10,15 @@
 // ---------------------------------------------------------------------------
 
 export const API_ENDPOINTS = {
-  GEMINI: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent',
-  GEMINI_FLASH: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
-  TEXT_EMBEDDING: 'https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent',
-  CLOUD_VISION: 'https://vision.googleapis.com/v1/images:annotate',
+  HEALTH: '/api/health',
+  GEMINI_ANALYZE: '/api/gemini/analyze',
+  GEMINI_THREAT: '/api/gemini/threat',
+  GEMINI_DMCA: '/api/gemini/dmca',
+  GEMINI_PROPAGATION: '/api/gemini/propagation',
+  VISION_ANALYZE: '/api/vision/analyze',
+  VISION_WEB: '/api/vision/web',
+  EMBEDDING_IMAGE: '/api/embeddings/image',
+  EMBEDDING_TEXT: '/api/embeddings/text',
 };
 
 // ---------------------------------------------------------------------------
@@ -74,8 +79,8 @@ export const PIPELINE_STEPS = {
 
 export const FEATURES = {
   /** Set to true to use mock data instead of real API calls */
-  USE_MOCK_GEMINI: !import.meta.env.VITE_GEMINI_API_KEY,
-  USE_MOCK_VISION: !import.meta.env.VITE_GOOGLE_CLOUD_API_KEY,
+  USE_MOCK_GEMINI: false,
+  USE_MOCK_VISION: false,
   /** Set to true to log all API requests/responses to console */
   DEBUG_MODE: import.meta.env.DEV,
 };

@@ -56,13 +56,7 @@ export async function generateContentDNA(imageFile, onProgress) {
   // -----------------------------------------------------------------------
   progress.emit(PIPELINE_STEPS.VISION, 'Analyzing with Cloud Vision...', 30);
 
-  let vision;
-  try {
-    vision = await analyzeWithVision(cleanBase64);
-  } catch (error) {
-    console.warn('[ContentDNA] Vision failed:', error.message);
-    vision = getFallbackVision();
-  }
+  const vision = await analyzeWithVision(cleanBase64);
 
   progress.emit(PIPELINE_STEPS.VISION, 'Vision analysis complete ✓', 50, vision);
 
@@ -71,13 +65,7 @@ export async function generateContentDNA(imageFile, onProgress) {
   // -----------------------------------------------------------------------
   progress.emit(PIPELINE_STEPS.GEMINI, 'Gemini AI analyzing content...', 55);
 
-  let gemini;
-  try {
-    gemini = await analyzeAsset(cleanBase64);
-  } catch (error) {
-    console.warn('[ContentDNA] Gemini failed:', error.message);
-    gemini = getFallbackGemini();
-  }
+  const gemini = await analyzeAsset(cleanBase64, { fileName: imageFile.name });
 
   progress.emit(PIPELINE_STEPS.GEMINI, 'AI analysis complete ✓', 75, gemini);
 
