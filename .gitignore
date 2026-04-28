@@ -9,6 +9,9 @@ dist/
 .env.local
 .env.*.local
 
+# Service account keys (never commit)
+cloud-infra/gcp-sa-key.json
+
 # IDE
 .vscode/
 .idea/
