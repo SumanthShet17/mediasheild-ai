@@ -217,7 +217,7 @@ function goToStep(step) {
       assetName: v.title,
       contentHash: "a442c425712f5a90",
       registrationDate: new Date().toISOString(),
-      infringingUrl: \`https://\${v.platform}/violation\`,
+      infringingUrl: `https://${v.platform}/violation`,
       ownerName: "Official Sports Rights Holder"
     };
 
@@ -226,20 +226,20 @@ function goToStep(step) {
     generateDMCA(violationData).then(result => {
       const el = document.getElementById('dmca-notice-text');
       if (el) {
-        el.innerHTML = \`
-          <p><strong>\${result.subject}</strong></p>
+        el.innerHTML = `
+          <p><strong>${result.subject}</strong></p>
           <br/>
-          <p>Reference: \${result.reference_id}</p>
-          <p>Urgency: <span class="badge badge-high">\${result.urgency}</span></p>
+          <p>Reference: ${result.reference_id}</p>
+          <p>Urgency: <span class="badge badge-high">${result.urgency}</span></p>
           <hr style="border:none;border-top:1px solid var(--glass-border);margin:12px 0;" />
-          <pre style="white-space:pre-wrap;font-family:inherit;">\${result.body}</pre>
-        \`;
+          <pre style="white-space:pre-wrap;font-family:inherit;">${result.body}</pre>
+        `;
         window.currentDmcaNotice = result.body;
       }
       if (nextBtn) nextBtn.disabled = false;
     }).catch(err => {
       const el = document.getElementById('dmca-notice-text');
-      if (el) el.innerHTML = \`<span style="color:var(--accent-danger);">❌ Error generating DMCA: \${err.message}</span>\`;
+      if (el) el.innerHTML = `<span style="color:var(--accent-danger);">❌ Error generating DMCA: ${err.message}</span>`;
       if (nextBtn) nextBtn.disabled = false;
     });
   }
@@ -250,6 +250,17 @@ function goToStep(step) {
       navigator.clipboard?.writeText(text);
       const btn = document.getElementById('dmca-copy-btn');
       if (btn) { btn.textContent = '✅ Copied!'; setTimeout(() => btn.textContent = '📋 Copy to Clipboard', 2000); }
+    });
+
+    document.getElementById('dmca-download-btn')?.addEventListener('click', () => {
+      const text = window.currentDmcaNotice || document.getElementById('dmca-notice-text')?.textContent || 'DMCA Notice content';
+      const blob = new Blob([text], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `DMCA_Notice_${new Date().toISOString().split('T')[0]}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     });
 
     document.getElementById('dmca-mark-sent-btn')?.addEventListener('click', () => {
