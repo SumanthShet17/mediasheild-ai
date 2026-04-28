@@ -2,6 +2,8 @@
    MediaShield AI — Register Asset Page
    ═══════════════════════════════════════════════════════════ */
 
+import { generateContentDNA } from '../engine/content-dna.js';
+
 export default function renderRegister() {
   const html = `
     <div class="page-enter">
@@ -154,7 +156,7 @@ function initDragDrop() {
   });
 }
 
-function handleFile(file) {
+async function handleFile(file) {
   const preview = document.getElementById('upload-preview');
   if (!preview) return;
 
@@ -173,4 +175,61 @@ function handleFile(file) {
     `;
   };
   reader.readAsDataURL(file);
+
+  // START DNA PIPELINE
+  const hashEl = document.getElementById('dna-hashes');
+  const logoEl = document.getElementById('dna-logos');
+  const descEl = document.getElementById('dna-description');
+  const credEl = document.getElementById('dna-credential');
+  
+  hashEl.innerHTML = '<span style="color:var(--accent-warning);">Computing hashes...</span>';
+  logoEl.innerHTML = '<span style="color:var(--accent-warning);">Awaiting vision API...</span>';
+  descEl.innerHTML = '<span style="color:var(--accent-warning);">Awaiting Gemini AI...</span>';
+  credEl.innerHTML = '<span style="color:var(--accent-warning);">Awaiting credentials...</span>';
+
+  const setStep = (num) => {
+    document.querySelectorAll('.step-item').forEach(el => el.classList.remove('active'));
+    document.querySelector(`.step-item[data-step="${num}"]`)?.classList.add('active');
+  };
+
+  try {
+    const dna = await generateContentDNA(file, (progress) => {
+      if (progress.step === 'hashing') setStep(1);
+      if (progress.step === 'vision') setStep(2);
+      if (progress.step === 'gemini') setStep(3);
+      if (progress.step === 'signing') setStep(4);
+    });
+
+    // Populate the results
+    hashEl.innerHTML = `pHash: ${dna.hashes.pHash.substring(0, 8)}...<br/>dHash: ${dna.hashes.dHash.substring(0, 8)}...<br/>aHash: ${dna.hashes.aHash.substring(0, 8)}...`;
+    
+    if (dna.vision?.logos?.length > 0) {
+      logoEl.innerHTML = dna.vision.logos.map(l => l.name).join(', ');
+    } else {
+      logoEl.innerHTML = 'No logos detected';
+    }
+
+    descEl.innerHTML = `
+      <strong>Sport:</strong> ${dna.gemini?.sport_type || 'Unknown'}<br/>
+      <strong>Teams:</strong> ${(dna.gemini?.teams || []).join(' vs ')}<br/>
+      <strong>Risk:</strong> ${dna.gemini?.piracy_risk || 'Unknown'}
+    `;
+
+    credEl.innerHTML = `Signed: ${new Date(dna.timestamp).toLocaleTimeString()}<br/>ID: ${dna.id.split('-')[0]}`;
+    
+    // Auto-fill form if possible
+    if (dna.gemini?.sport_type) {
+      const sportSelect = document.getElementById('asset-sport');
+      // Match select options
+      const sport = dna.gemini.sport_type.toLowerCase();
+      if (sportSelect && Array.from(sportSelect.options).some(opt => opt.value === sport)) {
+        sportSelect.value = sport;
+      } else if (sportSelect) {
+        sportSelect.value = 'other';
+      }
+    }
+  } catch (err) {
+    console.error("Pipeline error", err);
+    hashEl.innerHTML = '<span style="color:var(--accent-danger);">Error processing</span>';
+  }
 }
