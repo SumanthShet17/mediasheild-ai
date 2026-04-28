@@ -1,0 +1,15 @@
+{
+  "asset_id": "asset-001",
+  "org_id": "demo-org",
+  "upload_timestamp": "2026-04-24T00:00:00Z",
+  "storage_uri": "gs://bucket/originals/asset-001.jpg",
+  "gemini_description": "Demo asset",
+  "sport_type": "Cricket",
+  "content_type": "image",
+  "labels": "[]",
+  "hashes_phash": "",
+  "hashes_dhash": "",
+  "hashes_ahash": "",
+  "credential_hash": "",
+  "status": "active"
+}
