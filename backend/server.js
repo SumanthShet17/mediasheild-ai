@@ -19,6 +19,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DIST_DIR = path.resolve(__dirname, '..', 'dist');
 
+
 const ai = GEMINI_API_KEY ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null;
 
 const ANALYZE_PROMPT = `You are a sports media forensic analyst. Analyze this image and return a JSON object with these exact keys:
@@ -107,6 +108,7 @@ const server = http.createServer(async (req, res) => {
       const served = await tryServeStatic(res, url.pathname);
       if (served) return;
     }
+
 
     if (req.method === 'GET' && url.pathname === '/api/health') {
       sendJson(res, 200, {
@@ -287,6 +289,7 @@ function getContentType(filePath) {
       return 'application/octet-stream';
   }
 }
+
 
 function readJson(req) {
   return new Promise((resolve, reject) => {
