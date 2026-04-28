@@ -125,20 +125,20 @@ export default function renderPropagation() {
       try {
         const result = await summarizePropagation(graphData);
         content.innerHTML = `
-          <p style="margin-bottom:12px;"><strong>Summary:</strong> \${result.summary}</p>
+          <p style="margin-bottom:12px;"><strong>Summary:</strong> ${result.summary}</p>
           <div class="grid grid-2 gap-sm" style="margin-bottom:12px;">
-            <div><strong>Risk:</strong> <span class="badge badge-high">\${result.risk_assessment}</span></div>
-            <div><strong>Reach:</strong> \${result.estimated_reach}</div>
-            <div><strong>Pattern:</strong> \${result.temporal_pattern}</div>
-            <div><strong>Geography:</strong> \${result.geographic_focus}</div>
+            <div><strong>Risk:</strong> <span class="badge badge-high">${result.risk_assessment}</span></div>
+            <div><strong>Reach:</strong> ${result.estimated_reach}</div>
+            <div><strong>Pattern:</strong> ${result.temporal_pattern}</div>
+            <div><strong>Geography:</strong> ${result.geographic_focus}</div>
           </div>
           <p style="margin-bottom:8px;"><strong>Recommended Actions:</strong></p>
           <ul style="margin-left:20px;">
-            \${(result.recommended_actions || []).map(a => \`<li>\${a}</li>\`).join('')}
+            ${(result.recommended_actions || []).map(a => `<li>${a}</li>`).join('')}
           </ul>
         `;
       } catch (err) {
-        content.innerHTML = \`<span style="color:var(--accent-danger);">❌ Error: \${err.message}</span>\`;
+        content.innerHTML = `<span style="color:var(--accent-danger);">❌ Error: ${err.message}</span>`;
       }
       btn.disabled = false;
       btn.textContent = '↻ Regenerate';
@@ -165,14 +165,14 @@ function initD3Graph() {
 
   // Add layer 1 (first sharers)
   for (let i = 0; i < 5; i++) {
-    const id = \`n1_\${i}\`;
+    const id = `n1_${i}`;
     nodes.push({ id, group: groups[Math.floor(Math.random() * 2)], radius: 8, platform: platforms[i % 4] });
     links.push({ source: 'source', target: id, value: 2 });
     
     // Add layer 2
     const children = Math.floor(Math.random() * 6) + 1;
     for (let j = 0; j < children; j++) {
-      const childId = \`n2_\${i}_\${j}\`;
+      const childId = `n2_${i}_${j}`;
       nodes.push({ id: childId, group: 'unauthorized', radius: 5, platform: platforms[Math.floor(Math.random() * 4)] });
       links.push({ source: id, target: childId, value: 1 });
     }
@@ -230,7 +230,7 @@ function initD3Graph() {
         panel.classList.add('open');
         document.getElementById('node-platform').textContent = d.platform;
         document.getElementById('node-account').textContent = d.id;
-        document.getElementById('node-type').innerHTML = \`<span style="color:\${getColor(d.group)}">\${d.group.toUpperCase()}</span>\`;
+        document.getElementById('node-type').innerHTML = `<span style="color:${getColor(d.group)}">${d.group.toUpperCase()}</span>`;
       }
     });
 
