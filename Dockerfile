@@ -10,12 +10,9 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-# Install a simple static file server
-RUN npm install -g serve
-
 # Cloud Run uses the PORT environment variable (default 8080)
 ENV PORT=8080
 EXPOSE 8080
 
-# Serve the 'dist' folder on the specified port
-CMD ["sh", "-c", "serve -s dist -l ${PORT}"]
+# Run the backend HTTP server, which serves both /api/* and the built SPA from dist/
+CMD ["node", "backend/server.js"]

@@ -1,16 +1,23 @@
 import http from 'node:http';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 
 dotenv.config();
 
-const PORT = Number(process.env.AI_BACKEND_PORT || 8787);
+const PORT = Number(process.env.PORT || process.env.AI_BACKEND_PORT || 8787);
 const GEMINI_API_KEY = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
 const VISION_API_KEY = process.env.VITE_GOOGLE_CLOUD_API_KEY || process.env.GOOGLE_CLOUD_API_KEY || '';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || 'gemini-embedding-2';
 let visionFallbackActive = false;
 let geminiRateLimited = false;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DIST_DIR = path.resolve(__dirname, '..', 'dist');
 
 const ai = GEMINI_API_KEY ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null;
 
@@ -94,6 +101,13 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
   try {
+    // Serve the built Vite app for all non-API routes.
+    // IMPORTANT: this must run before the default 404, but after /api handlers.
+    if (req.method === 'GET' && !url.pathname.startsWith('/api/')) {
+      const served = await tryServeStatic(res, url.pathname);
+      if (served) return;
+    }
+
     if (req.method === 'GET' && url.pathname === '/api/health') {
       sendJson(res, 200, {
         ok: true,
@@ -190,12 +204,88 @@ function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Content-Type', 'application/json');
 }
 
 function sendJson(res, statusCode, payload) {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.writeHead(statusCode);
   res.end(JSON.stringify(payload));
+}
+
+async function tryServeStatic(res, urlPathname) {
+  // Normalize and prevent path traversal
+  const cleanPath = urlPathname.split('?')[0].split('#')[0];
+  const requestPath = cleanPath === '/' ? '/index.html' : cleanPath;
+
+  // Only serve files that exist inside dist
+  const absolutePath = path.resolve(DIST_DIR, '.' + requestPath);
+  if (!absolutePath.startsWith(DIST_DIR)) {
+    sendText(res, 400, 'Bad request');
+    return true;
+  }
+
+  // If it's a direct file request and exists, serve it
+  const fileServed = await sendFileIfExists(res, absolutePath);
+  if (fileServed) return true;
+
+  // SPA fallback: serve index.html for unknown routes (e.g., /dashboard)
+  const indexPath = path.join(DIST_DIR, 'index.html');
+  const indexServed = await sendFileIfExists(res, indexPath);
+  return indexServed;
+}
+
+async function sendFileIfExists(res, absolutePath) {
+  try {
+    const stat = await fs.stat(absolutePath);
+    if (!stat.isFile()) return false;
+
+    const data = await fs.readFile(absolutePath);
+    res.setHeader('Content-Type', getContentType(absolutePath));
+    res.writeHead(200);
+    res.end(data);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function sendText(res, statusCode, text) {
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.writeHead(statusCode);
+  res.end(text);
+}
+
+function getContentType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  switch (ext) {
+    case '.html':
+      return 'text/html; charset=utf-8';
+    case '.js':
+      return 'text/javascript; charset=utf-8';
+    case '.css':
+      return 'text/css; charset=utf-8';
+    case '.json':
+      return 'application/json; charset=utf-8';
+    case '.svg':
+      return 'image/svg+xml';
+    case '.png':
+      return 'image/png';
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.webp':
+      return 'image/webp';
+    case '.gif':
+      return 'image/gif';
+    case '.ico':
+      return 'image/x-icon';
+    case '.map':
+      return 'application/json; charset=utf-8';
+    case '.txt':
+      return 'text/plain; charset=utf-8';
+    default:
+      return 'application/octet-stream';
+  }
 }
 
 function readJson(req) {
