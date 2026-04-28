@@ -136,6 +136,10 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/gemini/threat') {
       const { originalBase64, suspectBase64 } = await readJson(req);
+      if (!originalBase64 || !suspectBase64) {
+        sendJson(res, 200, getFallbackGeminiThreat());
+        return;
+      }
       const text = await generateGeminiJsonWithFallback(
         THREAT_PROMPT,
         [inlineImage(originalBase64), inlineImage(suspectBase64)],
@@ -441,15 +445,12 @@ async function callVisionApi(imageBase64, webOnly = false) {
 
   if (!response.ok) {
     const errorBody = await response.text();
-    if (response.status === 403 && errorBody.includes('BILLING_DISABLED')) {
-      return await generateVisionFallback(
-        imageBase64,
-        webOnly,
-        'Cloud Vision billing is disabled for this project'
-      );
-    }
-
-    throw new Error(`Vision API error (${response.status}): ${errorBody}`);
+    console.warn(`[Vision API] Error (${response.status}): ${errorBody}. Using Gemini Fallback.`);
+    return await generateVisionFallback(
+      imageBase64,
+      webOnly,
+      `Vision API error (${response.status}): ${errorBody}`
+    );
   }
 
   const data = await response.json();
@@ -557,7 +558,7 @@ function stripCodeFences(text) {
 
 function isGeminiQuotaError(error) {
   const message = String(error?.message || error || '');
-  return message.includes('RESOURCE_EXHAUSTED') || message.includes('quota') || message.includes('429');
+  return message.includes('RESOURCE_EXHAUSTED') || message.includes('quota') || message.includes('429') || message.includes('503');
 }
 
 function buildFallbackGeminiAnalysis(imageBase64 = '', fileName = '') {
