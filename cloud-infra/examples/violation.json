@@ -1,0 +1,18 @@
+{
+  "violation_id": "viol-001",
+  "asset_id": "asset-001",
+  "detected_timestamp": "2026-04-24T00:00:00Z",
+  "source_url": "https://example.com/unauthorized",
+  "source_platform": "Web",
+  "similarity_score": 92,
+  "modification_type": "cropped",
+  "usage_context": "commercial",
+  "commercial_intent": "high",
+  "severity": "high",
+  "lat": 19.076,
+  "lng": 72.8777,
+  "country": "India",
+  "gemini_analysis": "{}",
+  "status": "detected",
+  "dmca_notice_uri": ""
+}
