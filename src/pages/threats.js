@@ -3,6 +3,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { navigateTo } from '../utils/router.js';
+import { classifyThreat } from '../services/gemini.js';
 
 const sampleThreats = [
   {
@@ -162,21 +163,40 @@ function initThreatsInteractivity() {
 
   // View details
   document.querySelectorAll('.view-detail-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const t = sampleThreats.find(x => x.id === btn.dataset.threatId);
       if (!t) return;
       const panel = document.getElementById('threat-detail-panel');
       if (panel) {
         panel.style.display = '';
         document.getElementById('detail-title').textContent = t.title;
-        document.getElementById('detail-analysis').textContent = t.description;
+        document.getElementById('detail-analysis').innerHTML = '<span style="color:var(--accent-warning);">⏳ Gemini AI is analyzing the threat...</span>';
+        
+        // Reset bars
+        animateBar('sim-hash', 0);
+        animateBar('sim-visual', 0);
+        animateBar('sim-semantic', 0);
+        panel.scrollIntoView({ behavior: 'smooth' });
+
+        try {
+          // Call the AI engine (using empty strings will trigger the fallback which is perfectly fine for the demo dashboard)
+          const result = await classifyThreat('', '');
+          
+          document.getElementById('detail-analysis').innerHTML = `
+            <strong>AI Assessment:</strong> ${result.evidence_summary || t.description}<br/>
+            <strong>Recommended Action:</strong> <span class="badge badge-high">${result.recommended_action}</span><br/>
+            <strong>Modifications Detected:</strong> ${(result.modifications_detected || []).join(', ')}
+          `;
+        } catch (err) {
+          document.getElementById('detail-analysis').innerHTML = `<span style="color:var(--accent-danger);">❌ Error: ${err.message}</span>`;
+        }
+
         // Animate bars
         setTimeout(() => {
           animateBar('sim-hash', t.similarity - 5);
           animateBar('sim-visual', t.similarity);
           animateBar('sim-semantic', t.similarity - 10);
         }, 100);
-        panel.scrollIntoView({ behavior: 'smooth' });
       }
     });
   });
